@@ -343,24 +343,25 @@ HASHTAGS:
 
     try:
 
-                   response = client.chat_completion(
-            
-                model=TEXT_MODEL,
-            
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-            
-                max_tokens=700,
-                temperature=0.7
-            )
+    response = client.chat_completion(
 
-        ai_result = response.choices[0].message.content
+        model=TEXT_MODEL,
 
-        print(ai_result)
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+
+        max_tokens=700,
+        temperature=0.7
+    )
+
+    ai_result = response.choices[0].message.content
+
+    print(ai_result)
+
 
         emotion_match = re.search(
             r"Emotion Score:\s*(\d+)",
