@@ -38,7 +38,7 @@ client = InferenceClient(
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "google/flan-t5-large"
+TEXT_MODEL = "tiiuae/falcon-7b-instruct"
 IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
 
 # =========================================================
@@ -158,12 +158,20 @@ Headline:
 
         return image_path
 
-    except Exception as e:
+   except Exception as e:
 
-        print("\nIMAGE GENERATION ERROR:")
-        print(e)
+    print("\n========== AI ERROR ==========")
 
-        return None
+    print("Headline:")
+    print(headline)
+
+    print("\nError Type:")
+    print(type(e))
+
+    print("\nError Details:")
+    print(str(e))
+
+    continue
 
 # =========================================================
 # CREATE SOCIAL MEDIA POSTER
@@ -371,19 +379,18 @@ HASHTAGS:
 
     try:
 
-        ai_result = client.text_generation(
-
+                ai_result = client.text_generation(
+        
             prompt=prompt,
-
+        
             model=TEXT_MODEL,
-
-            max_new_tokens=700,
-
-            temperature=0.7
+        
+            max_new_tokens=500,
+        
+            temperature=0.7,
+        
+            return_full_text=False
         )
-
-        print("\n========== AI RESPONSE ==========\n")
-        print(ai_result)
 
         # =====================================================
         # EXTRACT SCORES
