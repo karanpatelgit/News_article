@@ -158,7 +158,7 @@ Headline:
 
         return image_path
 
-   except Exception as e:
+    except Exception as e:
 
     print("\n========== AI ERROR ==========")
 
