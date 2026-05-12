@@ -102,8 +102,12 @@ def send_telegram_photo(photo_path, caption=""):
 
     except Exception as e:
 
-        print("\nTELEGRAM ERROR:")
-        print(e)
+        print("\n========== TELEGRAM ERROR ==========")
+        print("Error Type:", type(e))
+        print("Full Error:", str(e))
+
+        import traceback
+        traceback.print_exc()
 
 # =========================================================
 # AI IMAGE GENERATION
@@ -160,16 +164,12 @@ Headline:
 
     except Exception as e:
 
-        print("\n========== AI ERROR ==========")
+        print("\n========== IMAGE GENERATION ERROR ==========")
+        print("Error Type:", type(e))
+        print("Error Details:", str(e))
 
-        print("Headline:")
-        print(headline)
-
-        print("\nError Type:")
-        print(type(e))
-
-        print("\nError Details:")
-        print(str(e))
+        import traceback
+        traceback.print_exc()
 
         return None
 
@@ -492,8 +492,16 @@ HASHTAGS:
 
     except Exception as e:
 
-        print("\nAI ERROR:")
-        print(e)
+        print("\n========== AI ERROR ==========")
+
+        print("Headline:", headline)
+        print("Error Type:", type(e))
+        print("Full Error:", str(e))
+
+        import traceback
+        traceback.print_exc()
+
+        continue
 
 # =========================================================
 # RESULTS DATAFRAME
