@@ -35,12 +35,12 @@ print("✅ ENV LOADED")
 # =========================================================
 
 client = InferenceClient(
-    provider="hf-inference",
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+TEXT_MODEL = "google/flan-t5-large"
 IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
+
 # =========================================================
 # SHORT LINK FUNCTION
 # =========================================================
@@ -53,7 +53,10 @@ def shorten_url(long_url):
             f"https://is.gd/create.php?format=simple&url={long_url}"
         )
 
-        response = requests.get(api_url, timeout=10)
+        response = requests.get(
+            api_url,
+            timeout=10
+        )
 
         if response.status_code == 200:
             return response.text.strip()
@@ -63,6 +66,7 @@ def shorten_url(long_url):
     except Exception as e:
 
         print("SHORT LINK ERROR:", e)
+
         return long_url
 
 # =========================================================
@@ -93,12 +97,12 @@ def send_telegram_photo(photo_path, caption=""):
                 timeout=60
             )
 
-        print("TELEGRAM RESPONSE:")
+        print("\n========== TELEGRAM RESPONSE ==========")
         print(response.text)
 
     except Exception as e:
 
-        print("TELEGRAM ERROR:")
+        print("\nTELEGRAM ERROR:")
         print(e)
 
 # =========================================================
@@ -142,7 +146,7 @@ Headline:
 
         if response.status_code != 200:
 
-            print("IMAGE API ERROR:")
+            print("\nIMAGE API ERROR:")
             print(response.text)
 
             return None
@@ -156,10 +160,11 @@ Headline:
 
     except Exception as e:
 
-        print("IMAGE GENERATION ERROR:")
+        print("\nIMAGE GENERATION ERROR:")
         print(e)
 
         return None
+
 # =========================================================
 # CREATE SOCIAL MEDIA POSTER
 # =========================================================
@@ -172,7 +177,11 @@ def create_news_poster(image_path, headline, article):
 
         img = img.resize((1080, 1350))
 
-        overlay = Image.new('RGBA', img.size, (0, 0, 0, 120))
+        overlay = Image.new(
+            'RGBA',
+            img.size,
+            (0, 0, 0, 120)
+        )
 
         img = Image.alpha_composite(
             img.convert('RGBA'),
@@ -182,13 +191,26 @@ def create_news_poster(image_path, headline, article):
         draw = ImageDraw.Draw(img)
 
         try:
-            title_font = ImageFont.truetype("arial.ttf", 52)
-            article_font = ImageFont.truetype("arial.ttf", 34)
+
+            title_font = ImageFont.truetype(
+                "arial.ttf",
+                52
+            )
+
+            article_font = ImageFont.truetype(
+                "arial.ttf",
+                34
+            )
+
         except:
+
             title_font = ImageFont.load_default()
             article_font = ImageFont.load_default()
 
-        wrapped_headline = textwrap.fill(headline, width=28)
+        wrapped_headline = textwrap.fill(
+            headline,
+            width=28
+        )
 
         draw.text(
             (60, 80),
@@ -199,7 +221,10 @@ def create_news_poster(image_path, headline, article):
 
         article = article[:700]
 
-        wrapped_article = textwrap.fill(article, width=38)
+        wrapped_article = textwrap.fill(
+            article,
+            width=38
+        )
 
         draw.text(
             (60, 350),
@@ -223,7 +248,7 @@ def create_news_poster(image_path, headline, article):
 
     except Exception as e:
 
-        print("POSTER ERROR:")
+        print("\nPOSTER ERROR:")
         print(e)
 
         return None
@@ -253,11 +278,11 @@ RSS_FEEDS = {
 
 all_news = []
 
-print("\n========== FETCHING NEWS ==========")
+print("\n========== FETCHING NEWS ==========\n")
 
 for category, url in RSS_FEEDS.items():
 
-    print(f"Fetching {category}")
+    print(f"Fetching: {category}")
 
     try:
 
@@ -266,14 +291,18 @@ for category, url in RSS_FEEDS.items():
         for entry in feed.entries[:5]:
 
             all_news.append({
+
                 "category": category,
+
                 "headline": entry.title,
+
                 "link": entry.link
             })
 
     except Exception as e:
 
-        print("RSS ERROR:", e)
+        print("\nRSS ERROR:")
+        print(e)
 
 # =========================================================
 # DATAFRAME
@@ -282,17 +311,16 @@ for category, url in RSS_FEEDS.items():
 df = pd.DataFrame(all_news)
 
 if df.empty:
+
     print("No news found")
     exit()
-
-# remove duplicates
 
 df.drop_duplicates(
     subset=["headline"],
     inplace=True
 )
 
-print("TOTAL NEWS:", len(df))
+print("\nTOTAL NEWS:", len(df))
 
 # =========================================================
 # RESULTS
@@ -343,22 +371,16 @@ HASHTAGS:
 
     try:
 
-        response = client.chat_completion(
+        ai_result = client.text_generation(
+
+            prompt=prompt,
 
             model=TEXT_MODEL,
 
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            max_new_tokens=700,
 
-            max_tokens=700,
             temperature=0.7
         )
-
-        ai_result = response.choices[0].message.content
 
         print("\n========== AI RESPONSE ==========\n")
         print(ai_result)
@@ -368,17 +390,17 @@ HASHTAGS:
         # =====================================================
 
         emotion_match = re.search(
-            r"Emotion Score:\\s*(\\d+)",
+            r"Emotion Score:\s*(\d+)",
             ai_result
         )
 
         virality_match = re.search(
-            r"Virality Score:\\s*(\\d+)",
+            r"Virality Score:\s*(\d+)",
             ai_result
         )
 
         toxicity_match = re.search(
-            r"Political Toxicity:\\s*(\\d+)",
+            r"Political Toxicity:\s*(\d+)",
             ai_result
         )
 
@@ -474,7 +496,7 @@ results_df = pd.DataFrame(results)
 
 if results_df.empty:
 
-    print("No viral news found")
+    print("\n❌ NO VIRAL NEWS FOUND")
     exit()
 
 results_df = results_df.sort_values(
@@ -493,13 +515,15 @@ results_df.to_csv(
 # GENERATE POSTS
 # =========================================================
 
-print("\n========== GENERATING POSTS ==========")
+print("\n========== GENERATING POSTS ==========\n")
 
 for i, row in results_df.iterrows():
 
-    print(f"\nGenerating #{i+1}")
+    print(f"\nGenerating Post #{i+1}")
 
-    short_link = shorten_url(row['link'])
+    short_link = shorten_url(
+        row['link']
+    )
 
     image_path = generate_ai_image(
         row['headline']
@@ -535,7 +559,3 @@ for i, row in results_df.iterrows():
     time.sleep(5)
 
 print("\n✅ ALL POSTS COMPLETED")
-
-
-
-
