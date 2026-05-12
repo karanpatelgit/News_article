@@ -341,38 +341,44 @@ HASHTAGS:
 (viral hashtags only)
 """
 
-try:
+    try:
 
-    response = client.chat_completion(
+        response = client.chat_completion(
 
-        model=TEXT_MODEL,
+            model=TEXT_MODEL,
 
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
 
-        max_tokens=700,
-        temperature=0.7
-    )
+            max_tokens=700,
+            temperature=0.7
+        )
 
-    ai_result = response.choices[0].message.content
+        ai_result = response.choices[0].message.content
 
-    print(ai_result)
+        print("\n========== AI RESPONSE ==========\n")
+        print(ai_result)
 
-except Exception as e:
+        # =====================================================
+        # EXTRACT SCORES
+        # =====================================================
 
-    print(e)
-    
+        emotion_match = re.search(
+            r"Emotion Score:\\s*(\\d+)",
+            ai_result
+        )
+
         virality_match = re.search(
-            r"Virality Score:\s*(\d+)",
+            r"Virality Score:\\s*(\\d+)",
             ai_result
         )
 
         toxicity_match = re.search(
-            r"Political Toxicity:\s*(\d+)",
+            r"Political Toxicity:\\s*(\\d+)",
             ai_result
         )
 
@@ -388,6 +394,10 @@ except Exception as e:
             toxicity_match.group(1)
         ) if toxicity_match else 0
 
+        # =====================================================
+        # FINAL SCORE
+        # =====================================================
+
         final_score = (
             virality_score * 0.5 +
             emotion_score * 0.35 -
@@ -395,6 +405,17 @@ except Exception as e:
         )
 
         final_score = round(final_score, 2)
+
+        print("\n========== SCORES ==========")
+
+        print("Emotion:", emotion_score)
+        print("Virality:", virality_score)
+        print("Toxicity:", toxicity_score)
+        print("Final Score:", final_score)
+
+        # =====================================================
+        # ARTICLE EXTRACTION
+        # =====================================================
 
         article_match = re.search(
             r"FACEBOOK ARTICLE:(.*?)(HASHTAGS:|$)",
@@ -407,18 +428,28 @@ except Exception as e:
             if article_match else ai_result[:700]
         )
 
-        print("FINAL SCORE:", final_score)
+        # =====================================================
+        # SAVE RESULTS
+        # =====================================================
 
         if final_score >= 3:
 
             results.append({
+
                 "category": category,
+
                 "headline": headline,
+
                 "link": link,
+
                 "emotion_score": emotion_score,
+
                 "virality_score": virality_score,
+
                 "toxicity_score": toxicity_score,
+
                 "final_score": final_score,
+
                 "article": article_text
             })
 
@@ -432,7 +463,7 @@ except Exception as e:
 
     except Exception as e:
 
-        print("AI ERROR:")
+        print("\nAI ERROR:")
         print(e)
 
 # =========================================================
