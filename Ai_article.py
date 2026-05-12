@@ -160,18 +160,18 @@ Headline:
 
     except Exception as e:
 
-    print("\n========== AI ERROR ==========")
+        print("\n========== AI ERROR ==========")
 
-    print("Headline:")
-    print(headline)
+        print("Headline:")
+        print(headline)
 
-    print("\nError Type:")
-    print(type(e))
+        print("\nError Type:")
+        print(type(e))
 
-    print("\nError Details:")
-    print(str(e))
+        print("\nError Details:")
+        print(str(e))
 
-    continue
+        return None
 
 # =========================================================
 # CREATE SOCIAL MEDIA POSTER
@@ -379,16 +379,16 @@ HASHTAGS:
 
     try:
 
-                ai_result = client.text_generation(
-        
+        ai_result = client.text_generation(
+
             prompt=prompt,
-        
+
             model=TEXT_MODEL,
-        
+
             max_new_tokens=500,
-        
+
             temperature=0.7,
-        
+
             return_full_text=False
         )
 
