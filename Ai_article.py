@@ -38,7 +38,7 @@ client = InferenceClient(
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "tiiuae/falcon-7b-instruct"
+TEXT_MODEL = "google/flan-t5-large"
 IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
 
 # =========================================================
@@ -377,20 +377,28 @@ HASHTAGS:
 (viral hashtags only)
 """
 
+```python
     try:
 
-        ai_result = client.text_generation(
+        response = client.text_generation(
 
             prompt=prompt,
 
             model=TEXT_MODEL,
 
-            max_new_tokens=500,
-
-            temperature=0.7,
-
-            return_full_text=False
+            max_new_tokens=300
         )
+
+        ai_result = str(response)
+
+        if not ai_result.strip():
+
+            print("EMPTY AI RESPONSE")
+
+            continue
+
+        print("\n========== AI RESPONSE ==========\n")
+        print(ai_result)
 
         # =====================================================
         # EXTRACT SCORES
@@ -495,11 +503,16 @@ HASHTAGS:
         print("\n========== AI ERROR ==========")
 
         print("Headline:", headline)
+
         print("Error Type:", type(e))
+
         print("Full Error:", str(e))
 
         import traceback
+
         traceback.print_exc()
+
+        time.sleep(5)
 
         continue
 
