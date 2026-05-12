@@ -39,8 +39,8 @@ client = InferenceClient(
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
-
+TEXT_MODEL = "HuggingFaceH4/zephyr-7b-beta"
+IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
 # =========================================================
 # SHORT LINK FUNCTION
 # =========================================================
@@ -108,8 +108,7 @@ def send_telegram_photo(photo_path, caption=""):
 def generate_ai_image(headline):
 
     API_URL = (
-        "https://api-inference.huggingface.co/models/"
-        "stabilityai/stable-diffusion-xl-base-1.0"
+        f"https://api-inference.huggingface.co/models/{IMAGE_MODEL}"
     )
 
     headers = {
@@ -117,21 +116,17 @@ def generate_ai_image(headline):
     }
 
     prompt = f"""
-Create a cinematic viral Indian news poster.
+cinematic Indian news scene,
+viral social media poster,
+dramatic lighting,
+emotional atmosphere,
+realistic,
+ultra detailed,
+4k,
+news thumbnail style
 
 Headline:
 {headline}
-
-Style:
-realistic,
-dramatic,
-emotional,
-viral social media post,
-cinematic lighting,
-Indian atmosphere,
-4k,
-ultra detailed,
-news thumbnail
 """
 
     try:
@@ -139,13 +134,15 @@ news thumbnail
         response = requests.post(
             API_URL,
             headers=headers,
-            json={"inputs": prompt},
+            json={
+                "inputs": prompt
+            },
             timeout=120
         )
 
         if response.status_code != 200:
 
-            print("IMAGE API ERROR")
+            print("IMAGE API ERROR:")
             print(response.text)
 
             return None
@@ -163,7 +160,6 @@ news thumbnail
         print(e)
 
         return None
-
 # =========================================================
 # CREATE SOCIAL MEDIA POSTER
 # =========================================================
@@ -347,17 +343,20 @@ HASHTAGS:
 
     try:
 
-        response = client.chat_completion(
-            model=TEXT_MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            max_tokens=700,
-            temperature=0.7
-        )
+                   response = client.chat_completion(
+            
+                model=TEXT_MODEL,
+            
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+            
+                max_tokens=700,
+                temperature=0.7
+            )
 
         ai_result = response.choices[0].message.content
 
