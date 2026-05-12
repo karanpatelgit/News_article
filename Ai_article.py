@@ -377,7 +377,7 @@ HASHTAGS:
 (viral hashtags only)
 """
 
-```python
+
     try:
 
         response = client.text_generation(
