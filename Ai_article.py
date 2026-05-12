@@ -341,7 +341,7 @@ HASHTAGS:
 (viral hashtags only)
 """
 
-    try:
+try:
 
     response = client.chat_completion(
 
@@ -362,12 +362,10 @@ HASHTAGS:
 
     print(ai_result)
 
+except Exception as e:
 
-        emotion_match = re.search(
-            r"Emotion Score:\s*(\d+)",
-            ai_result
-        )
-
+    print(e)
+    
         virality_match = re.search(
             r"Virality Score:\s*(\d+)",
             ai_result
