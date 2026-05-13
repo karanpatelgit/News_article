@@ -147,104 +147,107 @@ def send_telegram_message(text):
 # =========================================================
  
 def create_news_poster(headline, article):
- 
+
     try:
- 
+
         WIDTH, HEIGHT = 1080, 1350
- 
-        # --- Background gradient ---
+
+        # --- Background ---
         img = Image.new("RGB", (WIDTH, HEIGHT), (5, 10, 30))
         draw = ImageDraw.Draw(img)
- 
+
         for y in range(HEIGHT):
             ratio = y / HEIGHT
             r = int(5 + ratio * 10)
-            g = int(10 + ratio * 15)
-            b = int(30 + ratio * 40)
+            g = int(10 + ratio * 20)
+            b = int(30 + ratio * 60)
             draw.line([(0, y), (WIDTH, y)], fill=(r, g, b))
- 
-        # --- Top accent line ---
-        draw.rectangle([(0, 0), (WIDTH, 8)], fill=(0, 120, 255))
- 
+
+        # --- Load Hindi-compatible fonts ---
+        hindi_font_paths = [
+            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
+        ]
+
+        hindi_regular_paths = [
+            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
+        ]
+
+        def load_font(paths, size):
+            for path in paths:
+                if os.path.exists(path):
+                    try:
+                        return ImageFont.truetype(path, size)
+                    except:
+                        continue
+            return ImageFont.load_default()
+
+        font_breaking  = load_font(hindi_font_paths,   52)
+        font_live      = load_font(hindi_font_paths,   36)
+        font_headline  = load_font(hindi_font_paths,   68)
+        font_article   = load_font(hindi_regular_paths, 38)
+        font_brand     = load_font(hindi_font_paths,   46)
+        font_tag       = load_font(hindi_regular_paths, 32)
+
         # --- BREAKING NEWS banner ---
-        draw.rectangle([(0, 30), (WIDTH, 130)], fill=(0, 90, 200))
-        draw.rectangle([(0, 30), (340, 130)], fill=(0, 60, 160))
- 
-        try:
-            font_banner_bold = ImageFont.truetype("arialbd.ttf", 58)
-            font_banner      = ImageFont.truetype("arial.ttf", 40)
-            font_live        = ImageFont.truetype("arialbd.ttf", 30)
-            font_headline    = ImageFont.truetype("arialbd.ttf", 62)
-            font_article     = ImageFont.truetype("arial.ttf", 36)
-            font_brand       = ImageFont.truetype("arialbd.ttf", 44)
-            font_tag         = ImageFont.truetype("arial.ttf", 30)
-        except:
-            font_banner_bold = ImageFont.load_default()
-            font_banner      = font_banner_bold
-            font_live        = font_banner_bold
-            font_headline    = font_banner_bold
-            font_article     = font_banner_bold
-            font_brand       = font_banner_bold
-            font_tag         = font_banner_bold
- 
-        draw.text((20, 45),  "BREAKING", font=font_banner_bold, fill="white")
-        draw.text((20, 88),  "NEWS",     font=font_banner_bold, fill=(0, 200, 255))
-        draw.text((360, 55), "● LIVE",   font=font_live,        fill=(255, 80, 80))
-        draw.text((360, 90), "ताजा अपडेट", font=font_banner,   fill="white")
- 
+        draw.rectangle([(0, 0), (WIDTH, 140)], fill=(0, 70, 180))
+        draw.rectangle([(0, 0), (360, 140)],   fill=(0, 40, 130))
+
+        draw.text((25, 20),  "BREAKING", font=font_breaking, fill="white")
+        draw.text((25, 80),  "NEWS",     font=font_breaking, fill=(0, 210, 255))
+        draw.text((380, 30), "● LIVE",   font=font_live,     fill=(255, 70, 70))
+        draw.text((380, 80), "ताजा अपडेट", font=font_live,  fill="white")
+
         # --- Blue separator ---
-        draw.rectangle([(0, 140), (WIDTH, 148)], fill=(0, 120, 255))
- 
-        # --- Headline ---
-        wrapped_headline = textwrap.fill(headline, width=22)
-        y_pos = 200
- 
+        draw.rectangle([(0, 140), (WIDTH, 152)], fill=(0, 150, 255))
+
+        # --- Headline background box ---
+        draw.rectangle([(0, 160), (WIDTH, 560)], fill=(0, 30, 100))
+
+        # --- Headline text ---
+        wrapped_headline = textwrap.fill(headline, width=24)
+        y_pos = 185
+
         for line in wrapped_headline.split("\n"):
-            draw.text((50, y_pos), line, font=font_headline, fill="white")
-            y_pos += 75
- 
-        # --- Yellow accent under headline ---
-        draw.rectangle(
-            [(50, y_pos + 10), (WIDTH - 50, y_pos + 16)],
-            fill=(255, 200, 0)
-        )
- 
+            draw.text((40, y_pos), line, font=font_headline, fill="white")
+            y_pos += 85
+
+        # --- Yellow divider ---
+        draw.rectangle([(40, 570), (WIDTH - 40, 582)], fill=(255, 200, 0))
+
         # --- Article text ---
-        article_short = article[:800]
-        wrapped_article = textwrap.fill(article_short, width=42)
- 
-        y_art = y_pos + 40
+        article_clean = article[:900]
+        wrapped_article = textwrap.fill(article_clean, width=38)
+
+        y_art = 600
         for line in wrapped_article.split("\n"):
-            if y_art > HEIGHT - 150:
+            if y_art > HEIGHT - 160:
                 break
-            draw.text((50, y_art), line, font=font_article, fill=(200, 220, 255))
-            y_art += 48
- 
+            draw.text((40, y_art), line, font=font_article, fill=(200, 225, 255))
+            y_art += 52
+
         # --- Bottom branding bar ---
-        draw.rectangle([(0, HEIGHT - 120), (WIDTH, HEIGHT)],      fill=(0, 60, 160))
-        draw.rectangle([(0, HEIGHT - 124), (WIDTH, HEIGHT - 120)], fill=(0, 200, 255))
- 
-        draw.text((50, HEIGHT - 95), "Karan Patel Kushinagar", font=font_brand, fill="white")
-        draw.text((50, HEIGHT - 48), "सच्ची खबर, सबसे पहले",  font=font_tag,   fill=(0, 200, 255))
- 
-        # Verified badge
-        draw.ellipse([(820, HEIGHT - 95), (870, HEIGHT - 45)], fill=(0, 120, 255))
-        draw.text((832, HEIGHT - 88), "✓", font=font_brand, fill="white")
- 
+        draw.rectangle([(0, HEIGHT - 130), (WIDTH, HEIGHT)],       fill=(0, 50, 150))
+        draw.rectangle([(0, HEIGHT - 134), (WIDTH, HEIGHT - 130)], fill=(0, 210, 255))
+
+        draw.text((40, HEIGHT - 105), "Karan Patel Kushinagar", font=font_brand, fill="white")
+        draw.text((40, HEIGHT - 52),  "सच्ची खबर, सबसे पहले",  font=font_tag,   fill=(0, 210, 255))
+
+        # --- Verified badge ---
+        draw.ellipse([(900, HEIGHT - 108), (960, HEIGHT - 48)], fill=(0, 120, 255))
+        draw.text((915, HEIGHT - 100), "✓", font=font_brand, fill="white")
+
         # --- Save ---
         final_path = "final_news_post.png"
         img.save(final_path)
- 
         return final_path
- 
+
     except Exception as e:
- 
-        print("\nPOSTER ERROR:")
-        print(e)
- 
+        print("\nPOSTER ERROR:", e)
         import traceback
         traceback.print_exc()
- 
         return None
  
 # =========================================================
