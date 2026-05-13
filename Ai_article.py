@@ -3,6 +3,7 @@ import pandas as pd
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 from PIL import Image, ImageDraw, ImageFont
+from groq import Groq
 import requests
 import textwrap
 import os
@@ -31,14 +32,18 @@ if not CHAT_ID:
 print("✅ ENV LOADED")
 
 # =========================================================
-# HUGGINGFACE CLIENT
+# HUGGINGFACE CLIENT AND GROQ CLIENT
 # =========================================================
 
-client = InferenceClient(
+hf_client = InferenceClient(
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "tiiuae/falcon-7b-instruct"
+groq_client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
+
+TEXT_MODEL = "llama-3.1-8b-instant"
 IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
 
 # =========================================================
@@ -333,13 +338,7 @@ print("\nTOTAL NEWS:", len(df))
 # =========================================================
 # AI TEXT GENERATION WITH RETRY
 # =========================================================
-
-def generate_ai_text(prompt, retries=4, wait=20):
-    """
-    Calls HuggingFace text_generation with retry logic.
-    StopIteration means the model is still loading on HuggingFace servers.
-    We wait and retry automatically.
-    """
+def generate_ai_text(prompt, retries=3, wait=5):
 
     for attempt in range(1, retries + 1):
 
@@ -347,54 +346,43 @@ def generate_ai_text(prompt, retries=4, wait=20):
 
             print(f"  🤖 AI attempt {attempt}/{retries}...")
 
-            result = client.text_generation(
-
-                prompt=prompt,
+            response = groq_client.chat.completions.create(
 
                 model=TEXT_MODEL,
 
-                max_new_tokens=500,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert viral Hindi social media writer."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
 
-                temperature=0.7,
+                max_tokens=500,
 
-                return_full_text=False
+                temperature=0.7
             )
+
+            result = response.choices[0].message.content
 
             if not result or not result.strip():
                 raise ValueError("Empty response from model")
 
             return result
 
-        except StopIteration:
-
-            print(f"  ⚠️  Model still loading on HuggingFace (StopIteration).")
-
-            if attempt < retries:
-                print(f"  ⏳ Waiting {wait}s before retry...")
-                time.sleep(wait)
-            else:
-                print("  ❌ All retries exhausted.")
-                return None
-
-        except ValueError as e:
-
-            print(f"  ⚠️  Empty response: {e}")
-
-            if attempt < retries:
-                print(f"  ⏳ Waiting {wait}s before retry...")
-                time.sleep(wait)
-            else:
-                print("  ❌ All retries exhausted.")
-                return None
-
         except Exception as e:
 
-            print(f"  ❌ Unexpected error: {type(e)} — {e}")
+            print(f"  ❌ Error: {type(e)} — {e}")
 
-            import traceback
-            traceback.print_exc()
-
-            return None
+            if attempt < retries:
+                print(f"  ⏳ Waiting {wait}s before retry...")
+                time.sleep(wait)
+            else:
+                print("  ❌ All retries exhausted.")
+                return None
 
     return None
 
