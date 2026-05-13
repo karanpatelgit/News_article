@@ -8,6 +8,7 @@ import textwrap
 import os
 import time
 import re
+import random
 
 # =========================================================
 # LOAD ENV
@@ -181,115 +182,66 @@ def draw_rounded_rect(draw, xy, radius, fill):
 # CREATE BREAKING NEWS POSTER
 # =========================================================
 
+
+
 def create_news_poster(headline, article):
 
     try:
 
-        WIDTH, HEIGHT = 1080, 1350
+        # --- Pick random template ---
+        template_folder = "templates"
 
-        # ── Background deep blue gradient ──
-        img  = Image.new("RGB", (WIDTH, HEIGHT), (3, 8, 25))
+        templates = [
+            f for f in os.listdir(template_folder)
+            if f.endswith(".png") or f.endswith(".jpg")
+        ]
+
+        if not templates:
+            print("❌ No templates found in /templates folder")
+            return None
+
+        chosen = random.choice(templates)
+        template_path = os.path.join(template_folder, chosen)
+
+        print(f"  🎨 Using template: {chosen}")
+
+        # --- Open template ---
+        img  = Image.open(template_path).convert("RGBA")
+        img  = img.resize((1080, 1350))
         draw = ImageDraw.Draw(img)
 
-        for y in range(HEIGHT):
-            t = y / HEIGHT
-            r = int(3   + t * 8)
-            g = int(8   + t * 22)
-            b = int(25  + t * 55)
-            draw.line([(0, y), (WIDTH, y)], fill=(r, g, b))
-
-        # ── Left edge accent bar ──
-        draw.rectangle([(0, 0), (10, HEIGHT)], fill=(0, 140, 255))
-
-        # ── Top glow line ──
-        draw.rectangle([(0, 0), (WIDTH, 6)], fill=(0, 180, 255))
-
-        # ── BREAKING NEWS banner ──
-        draw.rectangle([(0, 15), (WIDTH, 155)], fill=(0, 80, 190))
-
-        # Left dark block
-        draw.rectangle([(10, 15), (370, 155)], fill=(0, 45, 130))
-
-        # Vertical divider
-        draw.rectangle([(370, 15), (376, 155)], fill=(0, 180, 255))
-
-        # Load fonts
-        font_breaking = find_font(56, bold=True)
-        font_live     = find_font(34, bold=True)
-        font_taaza    = find_font(34, bold=False)
+        # --- Load fonts ---
         font_headline = find_font(64, bold=True)
         font_article  = find_font(38, bold=False)
-        font_brand    = find_font(44, bold=True)
-        font_tag      = find_font(32, bold=False)
-        font_category = find_font(30, bold=True)
-        font_score    = find_font(28, bold=False)
+        font_brand    = find_font(36, bold=True)
 
-        draw.text((25, 22),  "BREAKING", font=font_breaking, fill=(255, 255, 255))
-        draw.text((25, 88),  "NEWS",     font=font_breaking, fill=(0, 220, 255))
-        draw.text((392, 28), "● LIVE",   font=font_live,     fill=(255, 60, 60))
-        draw.text((392, 88), "ताजा अपडेट", font=font_taaza, fill=(255, 255, 255))
-
-        # ── Thick separator ──
-        draw.rectangle([(0, 155), (WIDTH, 168)], fill=(0, 160, 255))
-
-        # ── Category pill ──
-        draw_rounded_rect(draw, (20, 182, 260, 228), 20, fill=(0, 100, 220))
-        draw.text((40, 188), "● BREAKING NEWS", font=font_category, fill=(255, 255, 255))
-
-        # ── Headline box ──
-        draw.rectangle([(0, 240), (WIDTH, 260)], fill=(0, 60, 160))
-
+        # --- Paste Headline ---
         wrapped_headline = textwrap.fill(headline, width=22)
-        y_pos = 268
+        y_pos = 180   # ⬅️ adjust this based on your template
 
         for line in wrapped_headline.split("\n"):
             # shadow
             draw.text((43, y_pos + 3), line, font=font_headline, fill=(0, 0, 0))
-            # main
+            # main text
             draw.text((40, y_pos),     line, font=font_headline, fill=(255, 255, 255))
-            y_pos += 88
+            y_pos += 85
 
-        # ── Yellow bold divider ──
-        draw.rectangle([(40, y_pos + 12), (WIDTH - 40, y_pos + 20)], fill=(255, 200, 0))
-
-        # ── Small label ──
-        draw.text((40, y_pos + 30), "पूरी खबर पढ़ें ↓", font=font_score, fill=(180, 210, 255))
-
-        # ── Article text ──
-        article_clean   = article[:1000]
+        # --- Paste Article ---
+        article_clean   = article[:900]
         wrapped_article = textwrap.fill(article_clean, width=36)
 
-        y_art = y_pos + 70
+        y_art = y_pos + 40   # ⬅️ adjust this based on your template
 
         for line in wrapped_article.split("\n"):
-            if y_art > HEIGHT - 160:
-                # add "..." indicator if cut
-                draw.text((40, y_art), "...", font=font_article, fill=(150, 180, 220))
+            if y_art > 1180:
+                draw.text((40, y_art), "...", font=font_article, fill=(200, 200, 200))
                 break
-            draw.text((40, y_art), line, font=font_article, fill=(210, 230, 255))
-            y_art += 54
+            draw.text((40, y_art), line, font=font_article, fill=(255, 255, 255))
+            y_art += 52
 
-        # ── Bottom branding bar ──
-        draw.rectangle([(0, HEIGHT - 140), (WIDTH, HEIGHT)],       fill=(0, 45, 140))
-        draw.rectangle([(0, HEIGHT - 145), (WIDTH, HEIGHT - 140)], fill=(0, 180, 255))
-        draw.rectangle([(0, HEIGHT - 140), (8,     HEIGHT)],       fill=(0, 220, 255))
-
-        # Shadow for brand name
-        draw.text((52, HEIGHT - 112), "Karan Patel Kushinagar", font=font_brand, fill=(0, 0, 0))
-        draw.text((50, HEIGHT - 115), "Karan Patel Kushinagar", font=font_brand, fill=(255, 255, 255))
-        draw.text((50, HEIGHT - 58),  "सच्ची खबर, सबसे पहले",  font=font_tag,   fill=(0, 210, 255))
-
-        # ── Verified badge ──
-        draw.ellipse([(910, HEIGHT - 118), (980, HEIGHT - 48)], fill=(0, 120, 255))
-        draw.ellipse([(914, HEIGHT - 114), (976, HEIGHT - 52)], fill=(0, 90, 200))
-        draw.text((928, HEIGHT - 108), "✓", font=font_brand, fill=(255, 255, 255))
-
-        # ── Bottom glow line ──
-        draw.rectangle([(0, HEIGHT - 6), (WIDTH, HEIGHT)], fill=(0, 180, 255))
-
-        # ── Save ──
+        # --- Save ---
         final_path = "final_news_post.png"
-        img.save(final_path, quality=95)
+        img.convert("RGB").save(final_path, quality=95)
 
         print("  ✅ Poster created")
         return final_path
@@ -297,12 +249,9 @@ def create_news_poster(headline, article):
     except Exception as e:
 
         print("\nPOSTER ERROR:", e)
-
         import traceback
         traceback.print_exc()
-
         return None
-
 # =========================================================
 # RSS FEEDS
 # =========================================================
