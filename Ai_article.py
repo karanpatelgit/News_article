@@ -38,7 +38,7 @@ client = InferenceClient(
     token=HF_TOKEN
 )
 
-TEXT_MODEL = "google/flan-t5-large"
+TEXT_MODEL = "tiiuae/falcon-7b-instruct"
 IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
 
 # =========================================================
@@ -331,6 +331,74 @@ df.drop_duplicates(
 print("\nTOTAL NEWS:", len(df))
 
 # =========================================================
+# AI TEXT GENERATION WITH RETRY
+# =========================================================
+
+def generate_ai_text(prompt, retries=4, wait=20):
+    """
+    Calls HuggingFace text_generation with retry logic.
+    StopIteration means the model is still loading on HuggingFace servers.
+    We wait and retry automatically.
+    """
+
+    for attempt in range(1, retries + 1):
+
+        try:
+
+            print(f"  🤖 AI attempt {attempt}/{retries}...")
+
+            result = client.text_generation(
+
+                prompt=prompt,
+
+                model=TEXT_MODEL,
+
+                max_new_tokens=500,
+
+                temperature=0.7,
+
+                return_full_text=False
+            )
+
+            if not result or not result.strip():
+                raise ValueError("Empty response from model")
+
+            return result
+
+        except StopIteration:
+
+            print(f"  ⚠️  Model still loading on HuggingFace (StopIteration).")
+
+            if attempt < retries:
+                print(f"  ⏳ Waiting {wait}s before retry...")
+                time.sleep(wait)
+            else:
+                print("  ❌ All retries exhausted.")
+                return None
+
+        except ValueError as e:
+
+            print(f"  ⚠️  Empty response: {e}")
+
+            if attempt < retries:
+                print(f"  ⏳ Waiting {wait}s before retry...")
+                time.sleep(wait)
+            else:
+                print("  ❌ All retries exhausted.")
+                return None
+
+        except Exception as e:
+
+            print(f"  ❌ Unexpected error: {type(e)} — {e}")
+
+            import traceback
+            traceback.print_exc()
+
+            return None
+
+    return None
+
+# =========================================================
 # RESULTS
 # =========================================================
 
@@ -377,28 +445,14 @@ HASHTAGS:
 (viral hashtags only)
 """
 
+    ai_result = generate_ai_text(prompt)
+
+    if not ai_result:
+
+        print("⏭️  SKIPPING — no AI response")
+        continue
 
     try:
-
-        response = client.text_generation(
-
-            prompt=prompt,
-
-            model=TEXT_MODEL,
-
-            max_new_tokens=300
-        )
-
-        ai_result = str(response)
-
-        if not ai_result.strip():
-
-            print("EMPTY AI RESPONSE")
-
-            continue
-
-        print("\n========== AI RESPONSE ==========\n")
-        print(ai_result)
 
         # =====================================================
         # EXTRACT SCORES
@@ -494,27 +548,22 @@ HASHTAGS:
 
         else:
 
-            print("❌ REJECTED")
-
-        time.sleep(2)
+            print("❌ REJECTED (low score)")
 
     except Exception as e:
 
-        print("\n========== AI ERROR ==========")
+        print("\n========== PARSE ERROR ==========")
 
         print("Headline:", headline)
-
         print("Error Type:", type(e))
-
         print("Full Error:", str(e))
 
         import traceback
-
         traceback.print_exc()
 
-        time.sleep(5)
-
         continue
+
+    time.sleep(2)
 
 # =========================================================
 # RESULTS DATAFRAME
@@ -585,5 +634,8 @@ for i, row in results_df.iterrows():
     print(f"✅ SENT #{i+1}")
 
     time.sleep(5)
+
+print("\n✅ ALL POSTS COMPLETED")
+
 
 print("\n✅ ALL POSTS COMPLETED")
