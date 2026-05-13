@@ -8,403 +8,454 @@ import textwrap
 import os
 import time
 import re
- 
+
 # =========================================================
 # LOAD ENV
 # =========================================================
- 
+
 load_dotenv()
- 
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
- 
+BOT_TOKEN    = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID      = os.getenv("TELEGRAM_CHAT_ID")
+
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY missing")
- 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN missing")
- 
 if not CHAT_ID:
     raise ValueError("CHAT_ID missing")
- 
+
 print("✅ ENV LOADED")
- 
+
 # =========================================================
 # GROQ CLIENT
 # =========================================================
- 
-groq_client = Groq(
-    api_key=GROQ_API_KEY
-)
- 
-TEXT_MODEL = "llama-3.1-8b-instant"
- 
+
+groq_client = Groq(api_key=GROQ_API_KEY)
+TEXT_MODEL   = "llama-3.1-8b-instant"
+
+# =========================================================
+# FONT LOADER
+# =========================================================
+
+def find_font(size, bold=False):
+    """
+    Search for any available Hindi-compatible font on the system.
+    Falls back gracefully through multiple known paths.
+    """
+
+    bold_paths = [
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    ]
+
+    regular_paths = [
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    ]
+
+    paths = bold_paths if bold else regular_paths
+
+    for path in paths:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+
+    print(f"  ⚠️  No font found at size {size}, using default")
+    return ImageFont.load_default()
+
 # =========================================================
 # SHORT LINK FUNCTION
 # =========================================================
- 
+
 def shorten_url(long_url):
- 
+
     try:
- 
-        api_url = (
-            f"https://is.gd/create.php?format=simple&url={long_url}"
-        )
- 
-        response = requests.get(
-            api_url,
-            timeout=10
-        )
- 
+
+        api_url  = f"https://is.gd/create.php?format=simple&url={long_url}"
+        response = requests.get(api_url, timeout=10)
+
         if response.status_code == 200:
             return response.text.strip()
- 
+
         return long_url
- 
+
     except Exception as e:
- 
+
         print("SHORT LINK ERROR:", e)
- 
         return long_url
- 
+
 # =========================================================
 # TELEGRAM PHOTO FUNCTION
 # =========================================================
- 
+
 def send_telegram_photo(photo_path, caption=""):
- 
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
- 
+
     try:
- 
+
         with open(photo_path, "rb") as photo:
- 
+
             payload = {
                 "chat_id": CHAT_ID,
                 "caption": caption[:1000]
             }
- 
-            files = {
-                "photo": photo
-            }
- 
+
+            files = {"photo": photo}
+
             response = requests.post(
                 url,
                 data=payload,
                 files=files,
                 timeout=60
             )
- 
+
         print("\n========== TELEGRAM PHOTO RESPONSE ==========")
         print(response.text)
- 
+
     except Exception as e:
- 
+
         print("\n========== TELEGRAM PHOTO ERROR ==========")
         print("Error Type:", type(e))
         print("Full Error:", str(e))
- 
+
         import traceback
         traceback.print_exc()
- 
+
 # =========================================================
 # TELEGRAM MESSAGE FUNCTION
 # =========================================================
- 
+
 def send_telegram_message(text):
- 
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
- 
+
     try:
- 
+
         payload = {
-            "chat_id": CHAT_ID,
-            "text": text,
+            "chat_id":    CHAT_ID,
+            "text":       text,
             "parse_mode": "HTML"
         }
- 
-        response = requests.post(
-            url,
-            data=payload,
-            timeout=60
-        )
- 
+
+        response = requests.post(url, data=payload, timeout=60)
+
         print("\n========== TELEGRAM MESSAGE RESPONSE ==========")
         print(response.text)
- 
+
     except Exception as e:
- 
+
         print("\n========== TELEGRAM MESSAGE ERROR ==========")
         print("Error Type:", type(e))
         print("Full Error:", str(e))
- 
+
         import traceback
         traceback.print_exc()
- 
+
+# =========================================================
+# DRAW ROUNDED RECTANGLE HELPER
+# =========================================================
+
+def draw_rounded_rect(draw, xy, radius, fill):
+
+    x1, y1, x2, y2 = xy
+
+    draw.rectangle([x1 + radius, y1, x2 - radius, y2], fill=fill)
+    draw.rectangle([x1, y1 + radius, x2, y2 - radius], fill=fill)
+    draw.ellipse([x1, y1, x1 + radius * 2, y1 + radius * 2], fill=fill)
+    draw.ellipse([x2 - radius * 2, y1, x2, y1 + radius * 2], fill=fill)
+    draw.ellipse([x1, y2 - radius * 2, x1 + radius * 2, y2], fill=fill)
+    draw.ellipse([x2 - radius * 2, y2 - radius * 2, x2, y2], fill=fill)
+
 # =========================================================
 # CREATE BREAKING NEWS POSTER
 # =========================================================
- 
+
 def create_news_poster(headline, article):
 
     try:
 
         WIDTH, HEIGHT = 1080, 1350
 
-        # --- Background ---
-        img = Image.new("RGB", (WIDTH, HEIGHT), (5, 10, 30))
+        # ── Background deep blue gradient ──
+        img  = Image.new("RGB", (WIDTH, HEIGHT), (3, 8, 25))
         draw = ImageDraw.Draw(img)
 
         for y in range(HEIGHT):
-            ratio = y / HEIGHT
-            r = int(5 + ratio * 10)
-            g = int(10 + ratio * 20)
-            b = int(30 + ratio * 60)
+            t = y / HEIGHT
+            r = int(3   + t * 8)
+            g = int(8   + t * 22)
+            b = int(25  + t * 55)
             draw.line([(0, y), (WIDTH, y)], fill=(r, g, b))
 
-        # --- Load Hindi-compatible fonts ---
-        hindi_font_paths = [
-            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-            "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
-        ]
+        # ── Left edge accent bar ──
+        draw.rectangle([(0, 0), (10, HEIGHT)], fill=(0, 140, 255))
 
-        hindi_regular_paths = [
-            "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-            "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
-        ]
+        # ── Top glow line ──
+        draw.rectangle([(0, 0), (WIDTH, 6)], fill=(0, 180, 255))
 
-        def load_font(paths, size):
-            for path in paths:
-                if os.path.exists(path):
-                    try:
-                        return ImageFont.truetype(path, size)
-                    except:
-                        continue
-            return ImageFont.load_default()
+        # ── BREAKING NEWS banner ──
+        draw.rectangle([(0, 15), (WIDTH, 155)], fill=(0, 80, 190))
 
-        font_breaking  = load_font(hindi_font_paths,   52)
-        font_live      = load_font(hindi_font_paths,   36)
-        font_headline  = load_font(hindi_font_paths,   68)
-        font_article   = load_font(hindi_regular_paths, 38)
-        font_brand     = load_font(hindi_font_paths,   46)
-        font_tag       = load_font(hindi_regular_paths, 32)
+        # Left dark block
+        draw.rectangle([(10, 15), (370, 155)], fill=(0, 45, 130))
 
-        # --- BREAKING NEWS banner ---
-        draw.rectangle([(0, 0), (WIDTH, 140)], fill=(0, 70, 180))
-        draw.rectangle([(0, 0), (360, 140)],   fill=(0, 40, 130))
+        # Vertical divider
+        draw.rectangle([(370, 15), (376, 155)], fill=(0, 180, 255))
 
-        draw.text((25, 20),  "BREAKING", font=font_breaking, fill="white")
-        draw.text((25, 80),  "NEWS",     font=font_breaking, fill=(0, 210, 255))
-        draw.text((380, 30), "● LIVE",   font=font_live,     fill=(255, 70, 70))
-        draw.text((380, 80), "ताजा अपडेट", font=font_live,  fill="white")
+        # Load fonts
+        font_breaking = find_font(56, bold=True)
+        font_live     = find_font(34, bold=True)
+        font_taaza    = find_font(34, bold=False)
+        font_headline = find_font(64, bold=True)
+        font_article  = find_font(38, bold=False)
+        font_brand    = find_font(44, bold=True)
+        font_tag      = find_font(32, bold=False)
+        font_category = find_font(30, bold=True)
+        font_score    = find_font(28, bold=False)
 
-        # --- Blue separator ---
-        draw.rectangle([(0, 140), (WIDTH, 152)], fill=(0, 150, 255))
+        draw.text((25, 22),  "BREAKING", font=font_breaking, fill=(255, 255, 255))
+        draw.text((25, 88),  "NEWS",     font=font_breaking, fill=(0, 220, 255))
+        draw.text((392, 28), "● LIVE",   font=font_live,     fill=(255, 60, 60))
+        draw.text((392, 88), "ताजा अपडेट", font=font_taaza, fill=(255, 255, 255))
 
-        # --- Headline background box ---
-        draw.rectangle([(0, 160), (WIDTH, 560)], fill=(0, 30, 100))
+        # ── Thick separator ──
+        draw.rectangle([(0, 155), (WIDTH, 168)], fill=(0, 160, 255))
 
-        # --- Headline text ---
-        wrapped_headline = textwrap.fill(headline, width=24)
-        y_pos = 185
+        # ── Category pill ──
+        draw_rounded_rect(draw, (20, 182, 260, 228), 20, fill=(0, 100, 220))
+        draw.text((40, 188), "● BREAKING NEWS", font=font_category, fill=(255, 255, 255))
+
+        # ── Headline box ──
+        draw.rectangle([(0, 240), (WIDTH, 260)], fill=(0, 60, 160))
+
+        wrapped_headline = textwrap.fill(headline, width=22)
+        y_pos = 268
 
         for line in wrapped_headline.split("\n"):
-            draw.text((40, y_pos), line, font=font_headline, fill="white")
-            y_pos += 85
+            # shadow
+            draw.text((43, y_pos + 3), line, font=font_headline, fill=(0, 0, 0))
+            # main
+            draw.text((40, y_pos),     line, font=font_headline, fill=(255, 255, 255))
+            y_pos += 88
 
-        # --- Yellow divider ---
-        draw.rectangle([(40, 570), (WIDTH - 40, 582)], fill=(255, 200, 0))
+        # ── Yellow bold divider ──
+        draw.rectangle([(40, y_pos + 12), (WIDTH - 40, y_pos + 20)], fill=(255, 200, 0))
 
-        # --- Article text ---
-        article_clean = article[:900]
-        wrapped_article = textwrap.fill(article_clean, width=38)
+        # ── Small label ──
+        draw.text((40, y_pos + 30), "पूरी खबर पढ़ें ↓", font=font_score, fill=(180, 210, 255))
 
-        y_art = 600
+        # ── Article text ──
+        article_clean   = article[:1000]
+        wrapped_article = textwrap.fill(article_clean, width=36)
+
+        y_art = y_pos + 70
+
         for line in wrapped_article.split("\n"):
             if y_art > HEIGHT - 160:
+                # add "..." indicator if cut
+                draw.text((40, y_art), "...", font=font_article, fill=(150, 180, 220))
                 break
-            draw.text((40, y_art), line, font=font_article, fill=(200, 225, 255))
-            y_art += 52
+            draw.text((40, y_art), line, font=font_article, fill=(210, 230, 255))
+            y_art += 54
 
-        # --- Bottom branding bar ---
-        draw.rectangle([(0, HEIGHT - 130), (WIDTH, HEIGHT)],       fill=(0, 50, 150))
-        draw.rectangle([(0, HEIGHT - 134), (WIDTH, HEIGHT - 130)], fill=(0, 210, 255))
+        # ── Bottom branding bar ──
+        draw.rectangle([(0, HEIGHT - 140), (WIDTH, HEIGHT)],       fill=(0, 45, 140))
+        draw.rectangle([(0, HEIGHT - 145), (WIDTH, HEIGHT - 140)], fill=(0, 180, 255))
+        draw.rectangle([(0, HEIGHT - 140), (8,     HEIGHT)],       fill=(0, 220, 255))
 
-        draw.text((40, HEIGHT - 105), "Karan Patel Kushinagar", font=font_brand, fill="white")
-        draw.text((40, HEIGHT - 52),  "सच्ची खबर, सबसे पहले",  font=font_tag,   fill=(0, 210, 255))
+        # Shadow for brand name
+        draw.text((52, HEIGHT - 112), "Karan Patel Kushinagar", font=font_brand, fill=(0, 0, 0))
+        draw.text((50, HEIGHT - 115), "Karan Patel Kushinagar", font=font_brand, fill=(255, 255, 255))
+        draw.text((50, HEIGHT - 58),  "सच्ची खबर, सबसे पहले",  font=font_tag,   fill=(0, 210, 255))
 
-        # --- Verified badge ---
-        draw.ellipse([(900, HEIGHT - 108), (960, HEIGHT - 48)], fill=(0, 120, 255))
-        draw.text((915, HEIGHT - 100), "✓", font=font_brand, fill="white")
+        # ── Verified badge ──
+        draw.ellipse([(910, HEIGHT - 118), (980, HEIGHT - 48)], fill=(0, 120, 255))
+        draw.ellipse([(914, HEIGHT - 114), (976, HEIGHT - 52)], fill=(0, 90, 200))
+        draw.text((928, HEIGHT - 108), "✓", font=font_brand, fill=(255, 255, 255))
 
-        # --- Save ---
+        # ── Bottom glow line ──
+        draw.rectangle([(0, HEIGHT - 6), (WIDTH, HEIGHT)], fill=(0, 180, 255))
+
+        # ── Save ──
         final_path = "final_news_post.png"
-        img.save(final_path)
+        img.save(final_path, quality=95)
+
+        print("  ✅ Poster created")
         return final_path
 
     except Exception as e:
+
         print("\nPOSTER ERROR:", e)
+
         import traceback
         traceback.print_exc()
+
         return None
- 
+
 # =========================================================
 # RSS FEEDS
 # =========================================================
- 
+
 RSS_FEEDS = {
- 
+
     "India":
     "https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en",
- 
+
     "Technology":
     "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-IN&gl=IN&ceid=IN:en",
- 
+
     "World":
     "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-IN&gl=IN&ceid=IN:en",
- 
+
     "Business":
     "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en"
 }
- 
+
 # =========================================================
 # FETCH NEWS
 # =========================================================
- 
+
 all_news = []
- 
+
 print("\n========== FETCHING NEWS ==========\n")
- 
+
 for category, url in RSS_FEEDS.items():
- 
+
     print(f"Fetching: {category}")
- 
+
     try:
- 
+
         feed = feedparser.parse(url)
- 
+
         for entry in feed.entries[:5]:
- 
+
             all_news.append({
                 "category": category,
                 "headline": entry.title,
                 "link":     entry.link
             })
- 
+
     except Exception as e:
- 
-        print("\nRSS ERROR:")
-        print(e)
- 
+
+        print("\nRSS ERROR:", e)
+
 # =========================================================
 # DATAFRAME
 # =========================================================
- 
+
 df = pd.DataFrame(all_news)
- 
+
 if df.empty:
     print("No news found")
     exit()
- 
+
 df.drop_duplicates(subset=["headline"], inplace=True)
- 
+
 print("\nTOTAL NEWS:", len(df))
- 
+
 # =========================================================
 # AI TEXT GENERATION WITH RETRY
 # =========================================================
- 
+
 def generate_ai_text(prompt, retries=3, wait=5):
- 
+
     for attempt in range(1, retries + 1):
- 
+
         try:
- 
+
             print(f"  🤖 AI attempt {attempt}/{retries}...")
- 
+
             response = groq_client.chat.completions.create(
- 
+
                 model=TEXT_MODEL,
- 
+
                 messages=[
                     {
-                        "role": "system",
+                        "role":    "system",
                         "content": "You are an expert viral Hindi social media writer for Facebook. Always write articles in pure Hindi only."
                     },
                     {
-                        "role": "user",
+                        "role":    "user",
                         "content": prompt
                     }
                 ],
- 
+
                 max_tokens=1024,
- 
                 temperature=0.7
             )
- 
+
             result = response.choices[0].message.content
- 
+
             if not result or not result.strip():
                 raise ValueError("Empty response from model")
- 
+
             return result
- 
+
         except Exception as e:
- 
+
             print(f"  ❌ Error: {type(e)} — {e}")
- 
+
             if attempt < retries:
                 print(f"  ⏳ Waiting {wait}s before retry...")
                 time.sleep(wait)
             else:
                 print("  ❌ All retries exhausted.")
                 return None
- 
+
     return None
- 
+
 # =========================================================
 # RESULTS
 # =========================================================
- 
+
 results = []
- 
+
 # =========================================================
 # AI ANALYSIS LOOP
 # =========================================================
- 
+
 for index, row in df.iterrows():
- 
+
     headline = row["headline"]
     category = row["category"]
     link     = row["link"]
- 
+
     print("\n" + "=" * 80)
     print("HEADLINE:", headline)
     print("=" * 80)
- 
+
     prompt = f"""
 You are an expert viral Hindi social media writer for Facebook.
- 
+
 NEWS HEADLINE (in English):
 {headline}
- 
+
 Your task:
 1. Understand this headline deeply
 2. Write a full emotional viral Facebook post in HINDI ONLY
 3. The article must be 200-300 words minimum
 4. Make it human, emotional, engaging
- 
+
 Return STRICTLY in this exact format and nothing else:
- 
+
 Emotion Score: number/10
 Virality Score: number/10
 Political Toxicity: number/10
- 
+
 HOOK:
 (one strong emotional Hindi hook line)
- 
+
 FACEBOOK ARTICLE:
 (write full 200-300 word emotional Hindi article here.
 Pure Hindi only. No English words except proper nouns.
@@ -412,28 +463,28 @@ Start with a strong emotional opening.
 Use short punchy paragraphs.
 Add questions to engage readers.
 End with a call to action.)
- 
+
 HASHTAGS:
 #hindi #hashtags #only
 """
- 
+
     ai_result = generate_ai_text(prompt)
- 
+
     if not ai_result:
         print("⏭️  SKIPPING — no AI response")
         continue
- 
+
     try:
- 
+
         # --- Extract Scores ---
-        emotion_match   = re.search(r"Emotion Score:\s*(\d+)",       ai_result)
-        virality_match  = re.search(r"Virality Score:\s*(\d+)",      ai_result)
-        toxicity_match  = re.search(r"Political Toxicity:\s*(\d+)",  ai_result)
- 
+        emotion_match  = re.search(r"Emotion Score:\s*(\d+)",      ai_result)
+        virality_match = re.search(r"Virality Score:\s*(\d+)",     ai_result)
+        toxicity_match = re.search(r"Political Toxicity:\s*(\d+)", ai_result)
+
         emotion_score  = int(emotion_match.group(1))  if emotion_match  else 0
         virality_score = int(virality_match.group(1)) if virality_match else 0
         toxicity_score = int(toxicity_match.group(1)) if toxicity_match else 0
- 
+
         # --- Final Score ---
         final_score = round(
             virality_score * 0.5 +
@@ -441,40 +492,40 @@ HASHTAGS:
             toxicity_score * 0.15,
             2
         )
- 
+
         print("\n========== SCORES ==========")
         print("Emotion:",     emotion_score)
         print("Virality:",    virality_score)
         print("Toxicity:",    toxicity_score)
         print("Final Score:", final_score)
- 
+
         # --- Extract Article ---
         article_match = re.search(
             r"FACEBOOK ARTICLE:(.*?)(HASHTAGS:|$)",
             ai_result,
             re.DOTALL
         )
- 
+
         article_text = (
             article_match.group(1).strip()
             if article_match else ai_result[:1000]
         )
- 
+
         # --- Extract Hashtags ---
         hashtag_match = re.search(
             r"HASHTAGS:(.*?)$",
             ai_result,
             re.DOTALL
         )
- 
+
         hashtags = (
             hashtag_match.group(1).strip()
             if hashtag_match else ""
         )
- 
+
         # --- Save if score good ---
         if final_score >= 3:
- 
+
             results.append({
                 "category":      category,
                 "headline":      headline,
@@ -486,91 +537,92 @@ HASHTAGS:
                 "article":       article_text,
                 "hashtags":      hashtags
             })
- 
+
             print("✅ SAVED")
- 
+
         else:
             print("❌ REJECTED (low score)")
- 
+
     except Exception as e:
- 
+
         print("\n========== PARSE ERROR ==========")
         print("Headline:",   headline)
         print("Error Type:", type(e))
         print("Full Error:", str(e))
- 
+
         import traceback
         traceback.print_exc()
- 
+
         continue
- 
+
     time.sleep(2)
- 
+
 # =========================================================
 # RESULTS DATAFRAME
 # =========================================================
- 
+
 results_df = pd.DataFrame(results)
- 
+
 if results_df.empty:
     print("\n❌ NO VIRAL NEWS FOUND")
     exit()
- 
+
 results_df = results_df.sort_values(by="final_score", ascending=False)
 results_df = results_df.head(5)
 results_df.to_csv("viral_news_results.csv", index=False)
- 
+
 # =========================================================
 # GENERATE AND SEND POSTS
 # =========================================================
- 
+
 print("\n========== GENERATING POSTS ==========\n")
- 
+
 for i, row in results_df.iterrows():
- 
+
     print(f"\nGenerating Post #{i+1}")
- 
+
     short_link = shorten_url(row['link'])
- 
+
     # --- Generate poster ---
     final_poster = create_news_poster(
         row['headline'],
         row['article']
     )
- 
+
     if not final_poster:
         continue
- 
+
     # --- Send photo with short caption ---
     caption = f"""🔥 VIRAL NEWS | {row['category']}
- 
+
 📈 Score: {row['final_score']}
 🔗 {short_link}"""
- 
+
     send_telegram_photo(final_poster, caption)
- 
+
     time.sleep(2)
- 
-    # --- Send full Hindi FB article as text message ---
+
+    # --- Send full Hindi FB article as separate message ---
     full_message = f"""📰 <b>{row['headline']}</b>
- 
+
 {row['article']}
- 
+
 {row['hashtags']}
- 
+
 ❤️ Emotion: {row['emotion_score']}/10
 🔥 Virality: {row['virality_score']}/10
 📈 Final Score: {row['final_score']}
- 
+
 🔗 {short_link}
- 
+
 <b>— Karan Patel Kushinagar</b>
 <i>सच्ची खबर, सबसे पहले</i>"""
- 
+
     send_telegram_message(full_message)
- 
+
     print(f"✅ SENT #{i+1}")
- 
+
     time.sleep(5)
- 
+
 print("\n✅ ALL POSTS COMPLETED")
+
