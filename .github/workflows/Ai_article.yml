@@ -1,4 +1,4 @@
-name: News Bot
+name: AI ARTICLE
 
 on:
   workflow_dispatch:
