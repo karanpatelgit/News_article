@@ -120,50 +120,33 @@ def send_telegram_photo(photo_path, caption=""):
 
 def generate_ai_image(headline):
 
-    API_URL = (
-        f"https://api-inference.huggingface.co/models/{IMAGE_MODEL}"
-    )
-
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}"
-    }
-
-    prompt = f"""
-cinematic Indian news scene,
-viral social media poster,
-dramatic lighting,
-emotional atmosphere,
-realistic,
-ultra detailed,
-4k,
-news thumbnail style
-
-Headline:
-{headline}
-"""
-
     try:
 
-        response = requests.post(
-            API_URL,
-            headers=headers,
-            json={
-                "inputs": prompt
-            },
+        import urllib.parse
+
+        prompt = f"cinematic Indian news scene, viral social media poster, dramatic lighting, emotional atmosphere, realistic, ultra detailed, 4k, news thumbnail style, {headline}"
+
+        encoded_prompt = urllib.parse.quote(prompt)
+
+        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1350&nologo=true"
+
+        print(f"  🎨 Generating image via Pollinations...")
+
+        response = requests.get(
+            image_url,
             timeout=120
         )
 
         if response.status_code != 200:
-
-            print("\nIMAGE API ERROR:")
-            print(response.text)
-
+            print("\nIMAGE API ERROR:", response.status_code)
             return None
 
         image_path = "generated_news.png"
 
         with open(image_path, "wb") as f:
             f.write(response.content)
+
+        print("  ✅ Image generated")
 
         return image_path
 
@@ -177,7 +160,6 @@ Headline:
         traceback.print_exc()
 
         return None
-
 # =========================================================
 # CREATE SOCIAL MEDIA POSTER
 # =========================================================
