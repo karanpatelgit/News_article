@@ -1,14 +1,11 @@
 name: AI Viral News Bot
-
 on:
   workflow_dispatch:
   schedule:
     - cron: "0 */6 * * *"
-
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -22,12 +19,16 @@ jobs:
         run: |
           pip install -r requirements.txt
 
+      - name: Install Hindi Font
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y fonts-noto-core
+          fc-cache -fv
+
       - name: Run Bot
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python ai_news_bot.py
-
