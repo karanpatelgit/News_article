@@ -343,7 +343,7 @@ def generate_ai_text(prompt, retries=3, wait=5):
                     }
                 ],
 
-                max_tokens=500,
+                max_tokens=1024,
 
                 temperature=0.7
             )
@@ -389,32 +389,37 @@ for index, row in df.iterrows():
     print("=" * 80)
 
     prompt = f"""
-You are an expert viral Hindi social media writer.
-
-Analyze this news headline.
-
-HEADLINE:
-{headline}
-
-Return STRICTLY in this format:
-
-Emotion Score: number/10
-Virality Score: number/10
-Political Toxicity: number/10
-
-HOOK:
-(one emotional hook)
-
-FACEBOOK ARTICLE:
-(write emotional Hindi article.
-Make it human-like.
-Make it deeply engaging.
-Make it social-media-ready.)
-
-HASHTAGS:
-(viral hashtags only)
-"""
-
+    You are an expert viral Hindi social media writer for Facebook.
+    
+    NEWS HEADLINE (in English):
+    {headline}
+    
+    Your task:
+    1. Understand this headline deeply
+    2. Write a full emotional viral Facebook post in HINDI ONLY
+    3. The article must be 200-300 words minimum
+    4. Make it human, emotional, engaging
+    
+    Return STRICTLY in this exact format and nothing else:
+    
+    Emotion Score: number/10
+    Virality Score: number/10
+    Political Toxicity: number/10
+    
+    HOOK:
+    (one strong emotional Hindi hook line)
+    
+    FACEBOOK ARTICLE:
+    (write full 200-300 word emotional Hindi article here.
+    Pure Hindi only. No English words except proper nouns.
+    Start with a strong emotional opening.
+    Use short punchy paragraphs.
+    Add questions to engage readers.
+    End with a call to action.)
+    
+    HASHTAGS:
+    #English #hashtags #only
+    """
     ai_result = generate_ai_text(prompt)
 
     if not ai_result:
