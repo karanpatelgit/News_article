@@ -44,7 +44,7 @@ groq_client = Groq(
 )
 
 TEXT_MODEL = "llama-3.1-8b-instant"
-IMAGE_MODEL = "runwayml/stable-diffusion-v1-5"
+IMAGE_MODEL = "stabilityai/stable-diffusion-2-1" 
 
 # =========================================================
 # SHORT LINK FUNCTION
