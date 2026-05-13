@@ -22,8 +22,10 @@ CHAT_ID      = os.getenv("TELEGRAM_CHAT_ID")
 
 if not GROQ_API_KEY:
     raise ValueError("GROQ_API_KEY missing")
+
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN missing")
+
 if not CHAT_ID:
     raise ValueError("CHAT_ID missing")
 
@@ -41,25 +43,36 @@ TEXT_MODEL   = "llama-3.1-8b-instant"
 # =========================================================
 
 def find_font(size, bold=False):
-    """
-    Search for any available Hindi-compatible font on the system.
-    Falls back gracefully through multiple known paths.
-    """
+
+    # Print all available fonts for debugging
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['fc-list', ':lang=hi'],
+            capture_output=True,
+            text=True
+        )
+        print("  📋 Hindi fonts found:")
+        print(result.stdout[:500])
+    except:
+        pass
 
     bold_paths = [
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
         "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
+        "/usr/share/fonts/truetype/noto/NotoSerifDevanagari-Bold.ttf",
+        "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
     ]
 
     regular_paths = [
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSerifDevanagari-Regular.ttf",
+        "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
     ]
 
     paths = bold_paths if bold else regular_paths
@@ -67,13 +80,15 @@ def find_font(size, bold=False):
     for path in paths:
         if os.path.exists(path):
             try:
-                return ImageFont.truetype(path, size)
-            except Exception:
+                font = ImageFont.truetype(path, size)
+                print(f"  ✅ Font loaded: {path}")
+                return font
+            except Exception as e:
+                print(f"  ⚠️ Failed: {path} — {e}")
                 continue
 
-    print(f"  ⚠️  No font found at size {size}, using default")
+    print("  ❌ No Hindi font found! Using default.")
     return ImageFont.load_default()
-
 # =========================================================
 # SHORT LINK FUNCTION
 # =========================================================
@@ -164,25 +179,8 @@ def send_telegram_message(text):
         traceback.print_exc()
 
 # =========================================================
-# DRAW ROUNDED RECTANGLE HELPER
+# CREATE POSTER FROM TEMPLATE
 # =========================================================
-
-def draw_rounded_rect(draw, xy, radius, fill):
-
-    x1, y1, x2, y2 = xy
-
-    draw.rectangle([x1 + radius, y1, x2 - radius, y2], fill=fill)
-    draw.rectangle([x1, y1 + radius, x2, y2 - radius], fill=fill)
-    draw.ellipse([x1, y1, x1 + radius * 2, y1 + radius * 2], fill=fill)
-    draw.ellipse([x2 - radius * 2, y1, x2, y1 + radius * 2], fill=fill)
-    draw.ellipse([x1, y2 - radius * 2, x1 + radius * 2, y2], fill=fill)
-    draw.ellipse([x2 - radius * 2, y2 - radius * 2, x2, y2], fill=fill)
-
-# =========================================================
-# CREATE BREAKING NEWS POSTER
-# =========================================================
-
-
 
 def create_news_poster(headline, article):
 
@@ -193,14 +191,14 @@ def create_news_poster(headline, article):
 
         templates = [
             f for f in os.listdir(template_folder)
-            if f.endswith(".png") or f.endswith(".jpg")
+            if f.lower().endswith(".png") or f.lower().endswith(".jpg")
         ]
 
         if not templates:
             print("❌ No templates found in /templates folder")
             return None
 
-        chosen = random.choice(templates)
+        chosen        = random.choice(templates)
         template_path = os.path.join(template_folder, chosen)
 
         print(f"  🎨 Using template: {chosen}")
@@ -210,34 +208,50 @@ def create_news_poster(headline, article):
         img  = img.resize((1080, 1350))
         draw = ImageDraw.Draw(img)
 
-        # --- Load fonts ---
-        font_headline = find_font(64, bold=True)
-        font_article  = find_font(38, bold=False)
-        font_brand    = find_font(36, bold=True)
+        # --- Fonts ---
+        font_headline = find_font(50, bold=True)
+        font_article  = find_font(34, bold=True)
 
-        # --- Paste Headline ---
-        wrapped_headline = textwrap.fill(headline, width=22)
-        y_pos = 180   # ⬅️ adjust this based on your template
+        # ── TOP WHITE BOX ──
+        # Area: y=46 to y=261, x=30 to x=1050
+        # Headline centered, each line expands from middle
 
-        for line in wrapped_headline.split("\n"):
-            # shadow
-            draw.text((43, y_pos + 3), line, font=font_headline, fill=(0, 0, 0))
-            # main text
-            draw.text((40, y_pos),     line, font=font_headline, fill=(255, 255, 255))
-            y_pos += 85
+        box_top    = 46
+        box_bottom = 261
+        box_left   = 30
+        box_right  = 1050
 
-        # --- Paste Article ---
-        article_clean   = article[:900]
-        wrapped_article = textwrap.fill(article_clean, width=36)
+        wrapped_headline = textwrap.fill(headline, width=26)
+        lines            = wrapped_headline.split("\n")
+        line_height      = 56
+        total_h          = len(lines) * line_height
+        start_y          = box_top + (box_bottom - box_top - total_h) // 2
 
-        y_art = y_pos + 40   # ⬅️ adjust this based on your template
+        for line in lines:
+            if start_y > box_bottom - 10:
+                break
+            bbox       = draw.textbbox((0, 0), line, font=font_headline)
+            text_width = bbox[2] - bbox[0]
+            x          = (box_left + box_right - text_width) // 2
+            # subtle shadow
+            draw.text((x + 2, start_y + 2), line, font=font_headline, fill=(180, 180, 180))
+            draw.text((x, start_y),          line, font=font_headline, fill=(15, 15, 15))
+            start_y += line_height
+
+        # ── MIDDLE BEIGE BOX ──
+        # Area: y=628 to y=1018, x=55 to x=1020
+
+        article_clean   = article[:1200]
+        wrapped_article = textwrap.fill(article_clean, width=38)
+
+        y_art = 635
 
         for line in wrapped_article.split("\n"):
-            if y_art > 1180:
-                draw.text((40, y_art), "...", font=font_article, fill=(200, 200, 200))
+            if y_art > 1010:
+                draw.text((55, y_art), "...", font=font_article, fill=(30, 30, 30))
                 break
-            draw.text((40, y_art), line, font=font_article, fill=(255, 255, 255))
-            y_art += 52
+            draw.text((55, y_art), line, font=font_article, fill=(20, 20, 20))
+            y_art += 46
 
         # --- Save ---
         final_path = "final_news_post.png"
@@ -249,9 +263,12 @@ def create_news_poster(headline, article):
     except Exception as e:
 
         print("\nPOSTER ERROR:", e)
+
         import traceback
         traceback.print_exc()
+
         return None
+
 # =========================================================
 # RSS FEEDS
 # =========================================================
@@ -476,15 +493,15 @@ HASHTAGS:
         if final_score >= 3:
 
             results.append({
-                "category":      category,
-                "headline":      headline,
-                "link":          link,
-                "emotion_score": emotion_score,
-                "virality_score":virality_score,
-                "toxicity_score":toxicity_score,
-                "final_score":   final_score,
-                "article":       article_text,
-                "hashtags":      hashtags
+                "category":       category,
+                "headline":       headline,
+                "link":           link,
+                "emotion_score":  emotion_score,
+                "virality_score": virality_score,
+                "toxicity_score": toxicity_score,
+                "final_score":    final_score,
+                "article":        article_text,
+                "hashtags":       hashtags
             })
 
             print("✅ SAVED")
@@ -532,7 +549,7 @@ for i, row in results_df.iterrows():
 
     short_link = shorten_url(row['link'])
 
-    # --- Generate poster ---
+    # --- Generate poster from template ---
     final_poster = create_news_poster(
         row['headline'],
         row['article']
@@ -541,11 +558,8 @@ for i, row in results_df.iterrows():
     if not final_poster:
         continue
 
-    # --- Send photo with short caption ---
-    caption = f"""🔥 VIRAL NEWS | {row['category']}
-
-📈 Score: {row['final_score']}
-🔗 {short_link}"""
+    # --- Send photo with minimal caption ---
+    caption = f"🔥 {row['category']} | 🔗 {short_link}"
 
     send_telegram_photo(final_poster, caption)
 
@@ -558,10 +572,6 @@ for i, row in results_df.iterrows():
 
 {row['hashtags']}
 
-❤️ Emotion: {row['emotion_score']}/10
-🔥 Virality: {row['virality_score']}/10
-📈 Final Score: {row['final_score']}
-
 🔗 {short_link}
 
 <b>— Karan Patel Kushinagar</b>
@@ -572,6 +582,8 @@ for i, row in results_df.iterrows():
     print(f"✅ SENT #{i+1}")
 
     time.sleep(5)
+
+print("\n✅ ALL POSTS COMPLETED")
 
 print("\n✅ ALL POSTS COMPLETED")
 
