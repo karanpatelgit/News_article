@@ -9,6 +9,7 @@ import os
 import time
 import re
 import random
+import subprocess
 
 # =========================================================
 # LOAD ENV
@@ -39,56 +40,85 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 TEXT_MODEL   = "llama-3.1-8b-instant"
 
 # =========================================================
-# FONT LOADER
+# LOAD FONTS ONCE AT STARTUP
 # =========================================================
 
-def find_font(size, bold=False):
+def load_hindi_font(size, bold=False):
+    """
+    Dynamically finds installed Hindi fonts using fc-list.
+    Loads once at startup — not on every poster call.
+    """
 
-    # Print all available fonts for debugging
-    import subprocess
     try:
+
         result = subprocess.run(
             ['fc-list', ':lang=hi'],
             capture_output=True,
             text=True
         )
-        print("  📋 Hindi fonts found:")
-        print(result.stdout[:500])
-    except:
-        pass
 
-    bold_paths = [
+        paths = [
+            line.split(':')[0].strip()
+            for line in result.stdout.strip().split('\n')
+            if line.strip()
+        ]
+
+        print(f"  📋 Found {len(paths)} Hindi fonts")
+
+        # Try bold fonts first if bold=True
+        if bold:
+            for path in paths:
+                if ('Bold' in path or 'bold' in path) and (path.endswith('.ttf') or path.endswith('.otf')):
+                    try:
+                        font = ImageFont.truetype(path, size)
+                        print(f"  ✅ Bold font: {path}")
+                        return font
+                    except:
+                        continue
+
+        # Try any Hindi font
+        for path in paths:
+            if path.endswith('.ttf') or path.endswith('.otf'):
+                try:
+                    font = ImageFont.truetype(path, size)
+                    print(f"  ✅ Font: {path}")
+                    return font
+                except:
+                    continue
+
+    except Exception as e:
+        print(f"  ⚠️ fc-list error: {e}")
+
+    # Hard fallback paths
+    fallback_paths = [
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Bold.otf",
-        "/usr/share/fonts/truetype/noto/NotoSerifDevanagari-Bold.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
         "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]
-
-    regular_paths = [
-        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.otf",
-        "/usr/share/fonts/truetype/noto/NotoSerifDevanagari-Regular.ttf",
-        "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     ]
 
-    paths = bold_paths if bold else regular_paths
-
-    for path in paths:
+    for path in fallback_paths:
         if os.path.exists(path):
             try:
                 font = ImageFont.truetype(path, size)
-                print(f"  ✅ Font loaded: {path}")
+                print(f"  ✅ Fallback font: {path}")
                 return font
-            except Exception as e:
-                print(f"  ⚠️ Failed: {path} — {e}")
+            except:
                 continue
 
-    print("  ❌ No Hindi font found! Using default.")
+    print("  ❌ No font found — using PIL default")
     return ImageFont.load_default()
+
+
+# ── Load fonts ONCE here at startup ──
+print("\n========== LOADING FONTS ==========")
+FONT_HEADLINE = load_hindi_font(46, bold=True)
+FONT_ARTICLE  = load_hindi_font(32, bold=True)
+print("✅ FONTS LOADED\n")
+
 # =========================================================
 # SHORT LINK FUNCTION
 # =========================================================
@@ -208,50 +238,53 @@ def create_news_poster(headline, article):
         img  = img.resize((1080, 1350))
         draw = ImageDraw.Draw(img)
 
-        # --- Fonts ---
-        font_headline = find_font(50, bold=True)
-        font_article  = find_font(34, bold=True)
+        # ── TOP BOX: Headline ──
+        # Area: y=55 to y=260, x=30 to x=1050
+        # Each line centered (expands from middle)
 
-        # ── TOP WHITE BOX ──
-        # Area: y=46 to y=261, x=30 to x=1050
-        # Headline centered, each line expands from middle
-
-        box_top    = 46
-        box_bottom = 261
+        box_top    = 55
+        box_bottom = 260
         box_left   = 30
         box_right  = 1050
 
-        wrapped_headline = textwrap.fill(headline, width=26)
+        wrapped_headline = textwrap.fill(headline, width=28)
         lines            = wrapped_headline.split("\n")
-        line_height      = 56
+        line_height      = 52
         total_h          = len(lines) * line_height
         start_y          = box_top + (box_bottom - box_top - total_h) // 2
 
         for line in lines:
+
             if start_y > box_bottom - 10:
                 break
-            bbox       = draw.textbbox((0, 0), line, font=font_headline)
+
+            bbox       = draw.textbbox((0, 0), line, font=FONT_HEADLINE)
             text_width = bbox[2] - bbox[0]
             x          = (box_left + box_right - text_width) // 2
+
             # subtle shadow
-            draw.text((x + 2, start_y + 2), line, font=font_headline, fill=(180, 180, 180))
-            draw.text((x, start_y),          line, font=font_headline, fill=(15, 15, 15))
+            draw.text((x + 2, start_y + 2), line, font=FONT_HEADLINE, fill=(180, 180, 180))
+            # main text
+            draw.text((x,     start_y),     line, font=FONT_HEADLINE, fill=(15,  15,  15))
+
             start_y += line_height
 
-        # ── MIDDLE BEIGE BOX ──
-        # Area: y=628 to y=1018, x=55 to x=1020
+        # ── ARTICLE BOX ──
+        # Area: y=545 to y=1140, x=60 to x=1020
 
-        article_clean   = article[:1200]
-        wrapped_article = textwrap.fill(article_clean, width=38)
+        article_clean   = article[:1500]
+        wrapped_article = textwrap.fill(article_clean, width=36)
 
-        y_art = 635
+        y_art = 545
 
         for line in wrapped_article.split("\n"):
-            if y_art > 1010:
-                draw.text((55, y_art), "...", font=font_article, fill=(30, 30, 30))
+
+            if y_art > 1130:
+                draw.text((60, y_art), "...", font=FONT_ARTICLE, fill=(30, 30, 30))
                 break
-            draw.text((55, y_art), line, font=font_article, fill=(20, 20, 20))
-            y_art += 46
+
+            draw.text((60, y_art), line, font=FONT_ARTICLE, fill=(20, 20, 20))
+            y_art += 48
 
         # --- Save ---
         final_path = "final_news_post.png"
@@ -465,21 +498,21 @@ HASHTAGS:
         print("Toxicity:",    toxicity_score)
         print("Final Score:", final_score)
 
-        # --- Extract Article ---
+        # --- Extract ONLY Facebook Article (no scores, no hook) ---
         article_match = re.search(
-            r"FACEBOOK ARTICLE:(.*?)(HASHTAGS:|$)",
+            r"FACEBOOK ARTICLE:\s*(.*?)\s*HASHTAGS:",
             ai_result,
             re.DOTALL
         )
 
         article_text = (
             article_match.group(1).strip()
-            if article_match else ai_result[:1000]
+            if article_match else ""
         )
 
         # --- Extract Hashtags ---
         hashtag_match = re.search(
-            r"HASHTAGS:(.*?)$",
+            r"HASHTAGS:\s*(.*?)$",
             ai_result,
             re.DOTALL
         )
@@ -488,6 +521,11 @@ HASHTAGS:
             hashtag_match.group(1).strip()
             if hashtag_match else ""
         )
+
+        # --- Skip if no article extracted ---
+        if not article_text:
+            print("⚠️  Article extraction failed — skipping")
+            continue
 
         # --- Save if score good ---
         if final_score >= 3:
