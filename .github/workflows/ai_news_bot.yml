@@ -1,4 +1,4 @@
-name: AI Viral News Bot
+name: AI NEWS BOT
 on:
   workflow_dispatch:
   schedule:
